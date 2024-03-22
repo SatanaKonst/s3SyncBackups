@@ -25,15 +25,17 @@ remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
 
 if not remoteBackups:
     logger.info('Remote backups empty')
-    logger.info('Start upload backups')
-    # Получим список локальных бэкапов
-    for localBackupFileName in localBackups:
-        uploadStatus = functions.uploadBackup(REMOTE_NAME, BACKUP_CONTAINER_NAME,
-                                              BACKUP_LOCAL_DIR + localBackupFileName)
-        if uploadStatus == False:
-            logger.error('Error upload backup ' + localBackupFileName)
-        else:
-            logger.info('Success upload ' + localBackupFileName)
+    if len(localBackups) > 0:
+        logger.info('Start upload backups')
+        # Получим список локальных бэкапов
+        for localBackupFileName in localBackups:
+            uploadStatus = functions.uploadBackup(REMOTE_NAME, BACKUP_CONTAINER_NAME,
+                                                  BACKUP_LOCAL_DIR + localBackupFileName)
+            if uploadStatus == False:
+                logger.error('Error upload backup ' + localBackupFileName)
+            else:
+                logger.info('Success upload ' + localBackupFileName)
+
 else:
     remoteBackupsGroup = functions.groupBackups(remoteBackups)
     localBackupsGroup = functions.groupBackups(localBackups)
