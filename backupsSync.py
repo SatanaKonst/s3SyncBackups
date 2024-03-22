@@ -18,7 +18,7 @@ BACKUP_CONTAINER_NAME = getenv('BACKUP_CONTAINER_NAME')
 BACKUP_LOCAL_DIR = getenv('BACKUP_LOCAL_DIR')
 
 # Кол-во хранимых бэкапов
-BACKUP_SAVE_COUNT = getenv('BACKUP_SAVE_COUNT')
+BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT'))
 
 localBackups = next(walk(BACKUP_LOCAL_DIR), (None, None, []))[2]  # [] if no file
 remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
