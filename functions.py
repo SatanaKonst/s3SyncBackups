@@ -102,7 +102,9 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
             for backupForRemove in backupsForRemove:
                 result = deleteBackup(REMOTE_NAME, BACKUP_CONTAINER_NAME, backupForRemove)
                 if result == False:
-                    errors.append('Error delete file ' + backupForRemove)
+                    errors.append('🗑❗Error delete file ' + backupForRemove)
+                else:
+                    errors.append('🗑✅Success remove remote backup ' + backupForRemove)
 
     return errors
 
