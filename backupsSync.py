@@ -58,6 +58,9 @@ else:
                     logger.error('Error upload backup ' + uploadBackupFilePath)
                 else:
                     logger.info('Success upload ' + uploadBackupFilePath)
+                    # Удаляем локальный бэкап если указано в настройках
+                    if getenv('REMOVE_LOCAL_BACKUP', 'N') == 'Y':
+                        unlink(BACKUP_LOCAL_DIR + uploadBackupFilePath)
 
     # Чистим облако от старых бэкапов
     errors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
@@ -72,4 +75,5 @@ if getenv('SEND_TELEGRAM') == 'Y':
         'Complete Sync backups.' + Path(getenv('LOG_FILE')).read_text()
     )
     unlink(getenv('LOG_FILE'))
+
 print('End sync backups')
