@@ -3,6 +3,7 @@ from os import walk, unlink, getenv
 from dotenv import load_dotenv
 import logging
 from pathlib import Path
+import sys
 import functions
 
 load_dotenv()
@@ -20,7 +21,7 @@ BACKUP_LOCAL_DIR = getenv('BACKUP_LOCAL_DIR')
 # Кол-во хранимых бэкапов
 BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT'))
 
-localBackups = next(walk(BACKUP_LOCAL_DIR), (None, None, []))[2]  # [] if no file
+localBackups = functions.getLocalBackups(BACKUP_LOCAL_DIR)
 remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
 
 if not remoteBackups:
@@ -61,7 +62,7 @@ else:
     # Чистим облако от старых бэкапов
     errors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
     if len(errors) > 0:
-        logger.error('Error clear remote storage ' + errors)
+        logger.error('Error clear remote storage ' + ", ".join(errors))
 
 logger.info('End sync backups')
 if getenv('SEND_TELEGRAM') == 'Y':

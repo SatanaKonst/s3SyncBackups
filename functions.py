@@ -1,20 +1,42 @@
 import re
-import subprocess, sys
+import subprocess
 import requests
+from os import walk, getenv
+
 
 # Сгруппировать бэкапы по номеру виртуальной машины
 def groupBackups(backuos):
-    vmBackupGroups = dict();
+    vmBackupGroups = dict()
     # Сгруппируем бэкапы по номеру виртуальной машины
     for remoteBackup in backuos:
         # Получим номер ВМ
-        vmNumber = re.findall(r"-\d{3}-", remoteBackup)[0].strip('-')
-        if not str(vmNumber) in vmBackupGroups:
-            vmBackupGroups[str(vmNumber)] = []
-            vmBackupGroups[str(vmNumber)].append(remoteBackup)
+        vmNumber = re.findall(r"-\d{3}-", remoteBackup)
+        if len(vmNumber) > 0:
+            vmNumber = vmNumber[0].strip('-')
+            if not str(vmNumber) in vmBackupGroups:
+                vmBackupGroups[str(vmNumber)] = []
+                vmBackupGroups[str(vmNumber)].append(remoteBackup)
+            else:
+                vmBackupGroups[str(vmNumber)].append(remoteBackup)
         else:
-            vmBackupGroups[str(vmNumber)].append(remoteBackup)
+            if not 'noVmFiles' in vmBackupGroups:
+                vmBackupGroups['noVmFiles'] = []
+                vmBackupGroups['noVmFiles'].append(remoteBackup)
+            else:
+                vmBackupGroups['noVmFiles'].append(remoteBackup)
+
     return vmBackupGroups
+
+
+def getLocalBackups(dir):
+    localBackupsTmp = next(walk(dir), (None, None, []))[2]  # [] if no file
+    localBackups = []
+    filterRegex = getenv('SELECTED_BACKUP_REGEX', 'vzdump-qemu.*zst');
+    for backup in localBackupsTmp:
+        file = re.findall(filterRegex, str(backup))
+        if (len(file) > 0):
+            localBackups.append(file[0])
+    return localBackups
 
 
 # Получить список бэкапов в облаке
@@ -28,9 +50,11 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
             stderr=subprocess.STDOUT
         )
         remoteBackupsTmp = remoteBackupsTmp.strip().splitlines();
-        remoteBackups = [];
+        remoteBackups = []
         for backup in remoteBackupsTmp:
-            remoteBackups.append(re.findall('vzdump-qemu.*zst', str(backup))[0])
+            file = re.findall(getenv('SELECTED_BACKUP_REGEX', 'vzdump-qemu.*zst'), str(backup))
+            if (len(file) > 0):
+                remoteBackups.append(file[0])
     except subprocess.CalledProcessError as cpe:
         remoteBackups = []
 
@@ -72,8 +96,7 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
     remoteBackupsGroup = groupBackups(remoteBackups)
     errors = []
     for vmId in remoteBackupsGroup:
-        backupsCount = len(remoteBackupsGroup[vmId])
-        if (backupsCount > BACKUP_SAVE_COUNT):
+        if (len(remoteBackupsGroup[vmId]) > BACKUP_SAVE_COUNT):
             backups = sorted(remoteBackupsGroup[vmId], reverse=True)
             backupsForRemove = backups[BACKUP_SAVE_COUNT::]
             for backupForRemove in backupsForRemove:
