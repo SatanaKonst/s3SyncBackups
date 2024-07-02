@@ -5,12 +5,15 @@ from os import walk, getenv
 
 
 # Сгруппировать бэкапы по номеру виртуальной машины
-def groupBackups(backuos):
+def groupBackups(backups):
     vmBackupGroups = dict()
     # Сгруппируем бэкапы по номеру виртуальной машины
-    for remoteBackup in backuos:
+    for remoteBackup in backups:
+        remoteBackup = remoteBackup.strip()
         # Получим номер ВМ
-        vmNumber = re.findall(getenv('GROUP_BACKUP_REGEX', 'r"-\d{3}-"'), remoteBackup)
+        groupRegex = getenv('GROUP_BACKUP_REGEX', r"-\d{3}-")
+        groupRegex = "{}".format(groupRegex)
+        vmNumber = re.findall(groupRegex, remoteBackup)
         if len(vmNumber) > 0:
             vmNumber = vmNumber[0].strip('-')
             if not str(vmNumber) in vmBackupGroups:
