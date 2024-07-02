@@ -10,7 +10,7 @@ def groupBackups(backuos):
     # Сгруппируем бэкапы по номеру виртуальной машины
     for remoteBackup in backuos:
         # Получим номер ВМ
-        vmNumber = re.findall(r"-\d{3}-", remoteBackup)
+        vmNumber = re.findall(getenv('GROUP_BACKUP_REGEX', 'r"-\d{3}-"'), remoteBackup)
         if len(vmNumber) > 0:
             vmNumber = vmNumber[0].strip('-')
             if not str(vmNumber) in vmBackupGroups:
