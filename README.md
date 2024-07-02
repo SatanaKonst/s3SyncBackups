@@ -22,3 +22,16 @@ vzdump-qemu-100-2024_02_30-15_42_45.vma.zst
 2. Заполнить переменные
 3. Установить зависимости ```pip install -r requirements.txt```
 4. Запустить ```python3.12 backupsSync.py```
+
+# Параметры
+LOG_FILE - название файла лога
+REMOTE_NAME - название подключения к s3
+BACKUP_CONTAINER_NAME - название контейнера
+BACKUP_LOCAL_DIR - путь до локальной дирректории с бэкапами
+BACKUP_SAVE_COUNT - кол-во бэкапов в облаке
+SELECTED_BACKUP_REGEX - регулярка для выборки бэкапов
+GROUP_BACKUP_REGEX - регулярка для группировки (используется для расчета кол-ва бэкапов)
+SEND_TELEGRAM - отправить сообщение в Telegramm
+TELEGRAM_TOKEN - токен телеги
+TELEGRAM_BOT_CHAT_ID - чат в телеге
+TELEGRAM_MESSAGE_HEADER - Заголовок уведомлениия
