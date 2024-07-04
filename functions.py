@@ -46,20 +46,21 @@ def getLocalBackups(dir):
 # Получить список бэкапов в облаке
 def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
     try:
-        command = 'rclone ls ' + REMOTE_NAME + ':' + BACKUP_CONTAINER_NAME;
+        command = 'rclone lsf ' + REMOTE_NAME + ':' + BACKUP_CONTAINER_NAME;
         remoteBackupsTmp = subprocess.check_output(
             command,
             shell=True,
             executable="/bin/bash",
             stderr=subprocess.STDOUT
         )
-        remoteBackupsTmp = remoteBackupsTmp.strip().splitlines();
+        remoteBackupsTmp = str(remoteBackupsTmp).strip().split('\\n')
         remoteBackups = []
         for backup in remoteBackupsTmp:
             file = re.findall(getenv('SELECTED_BACKUP_REGEX', 'vzdump-qemu.*zst'), str(backup))
             if (len(file) > 0):
                 remoteBackups.append(file[0])
     except subprocess.CalledProcessError as cpe:
+        print(cpe)
         remoteBackups = []
 
     return remoteBackups
