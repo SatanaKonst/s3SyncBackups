@@ -1,8 +1,9 @@
+import hashlib
 import json
 import re
 import subprocess
 import requests
-from os import walk, getenv
+from os import walk, getenv, path
 
 
 # Сгруппировать бэкапы по номеру виртуальной машины
@@ -35,12 +36,31 @@ def groupBackups(backups):
 def getLocalBackups(dir):
     localBackupsTmp = next(walk(dir), (None, None, []))[2]  # [] if no file
     localBackups = []
-    filterRegex = getenv('SELECTED_BACKUP_REGEX', 'vzdump-qemu.*zst');
+    filterRegex = "{}".format(getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)"))
     for backup in localBackupsTmp:
         file = re.findall(filterRegex, str(backup))
         if (len(file) > 0):
-            localBackups.append(file[0])
+            # берем файл описания
+            notesFilePath = dir + backup + '.notes'
+            if isAddNotesToBackupName()==True and path.isfile(notesFilePath):
+                backup = backup + '_notes:' + md5(notesFilePath)
+
+            localBackups.append(backup)
     return localBackups
+
+
+# Добавлять описание в название бэкапа
+def isAddNotesToBackupName():
+    return getenv('ADD_NOTES_TO_BACKUP_NAME', 'N') == 'Y'
+
+
+# Получить md5 от файла
+def md5(fname):
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 
 # Получить список бэкапов в облаке
@@ -56,7 +76,12 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
         remoteBackupsTmp = str(remoteBackupsTmp).strip().split('\\n')
         remoteBackups = []
         for backup in remoteBackupsTmp:
-            file = re.findall(getenv('SELECTED_BACKUP_REGEX', 'vzdump-qemu.*zst'), str(backup))
+            file = re.findall(
+                "{}".format(
+                    getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)")
+                ),
+                str(backup)
+            )
             if (len(file) > 0):
                 remoteBackups.append(file[0])
     except subprocess.CalledProcessError as cpe:
