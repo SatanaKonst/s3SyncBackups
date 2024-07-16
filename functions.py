@@ -118,7 +118,7 @@ def uploadBackup(remoteName, containerName, filePath):
 
 
 def deleteBackup(remoteName, containerName, fileName):
-    command = 'rclone deletefile ' + remoteName + ':' + containerName + '/' + fileName
+    command = 'rclone deletefile ' + remoteName + ':' + containerName + fileName
     try:
         result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
         if result == 0:

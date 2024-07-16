@@ -36,4 +36,5 @@ SEND_TELEGRAM - отправить сообщение в Telegramm
 TELEGRAM_TOKEN - токен телеги
 TELEGRAM_BOT_CHAT_ID - чат в телеге
 TELEGRAM_MESSAGE_HEADER - Заголовок уведомлениия
+ADD_NOTES_TO_BACKUP_NAME - добавляет md5 от файла .notes (для возможности синхронизировать бэкапы из разных расписаний)
 ```
