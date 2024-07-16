@@ -41,12 +41,16 @@ def getLocalBackups(dir):
         file = re.findall(filterRegex, str(backup))
         if (len(file) > 0):
             # берем файл описания
-            notesFilePath = dir + backup + '.notes'
-            if isAddNotesToBackupName()==True and path.isfile(notesFilePath):
-                backup = backup + '_notes:' + md5(notesFilePath)
-
+            backup = addNotesToBackupName(backup, dir)
             localBackups.append(backup)
     return localBackups
+
+
+def addNotesToBackupName(backupName, dir):
+    notesFilePath = dir + backupName + '.notes'
+    if isAddNotesToBackupName() == True and path.isfile(notesFilePath):
+        backupName = backupName + '_notes:' + md5(notesFilePath)
+    return backupName
 
 
 # Добавлять описание в название бэкапа
@@ -66,7 +70,7 @@ def md5(fname):
 # Получить список бэкапов в облаке
 def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
     try:
-        command = 'rclone lsf ' + REMOTE_NAME + ':' + BACKUP_CONTAINER_NAME;
+        command = 'rclone lsf ' + REMOTE_NAME + ':' + BACKUP_CONTAINER_NAME
         remoteBackupsTmp = subprocess.check_output(
             command,
             shell=True,
@@ -83,7 +87,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
                 str(backup)
             )
             if (len(file) > 0):
-                remoteBackups.append(file[0])
+                remoteBackups.append(backup)
     except subprocess.CalledProcessError as cpe:
         print(cpe)
         remoteBackups = []
@@ -93,7 +97,14 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
 
 # Загрузить бэкап в облако
 def uploadBackup(remoteName, containerName, filePath):
-    command = 'rclone copy ' + filePath + ' ' + remoteName + ':' + containerName
+    if isAddNotesToBackupName() == True:
+        originalFile = re.sub(r"_notes.*",'',filePath)
+    else:
+        originalFile = filePath
+
+    fileName = path.basename(filePath)
+
+    command = 'rclone copyto ' + originalFile + ' ' + remoteName + ':' + containerName+'/'+fileName
     try:
         result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
         if result == 0:
