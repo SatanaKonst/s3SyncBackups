@@ -77,7 +77,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
             executable="/bin/bash",
             stderr=subprocess.STDOUT
         )
-        remoteBackupsTmp = str(remoteBackupsTmp).strip().split('\\n')
+        remoteBackupsTmp = remoteBackupsTmp.decode("utf-8").strip().split('\n')
         remoteBackups = []
         for backup in remoteBackupsTmp:
             file = re.findall(
@@ -87,7 +87,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
                 str(backup)
             )
             if (len(file) > 0):
-                remoteBackups.append(backup)
+                remoteBackups.append(str(backup))
     except subprocess.CalledProcessError as cpe:
         print(cpe)
         remoteBackups = []
@@ -118,7 +118,7 @@ def uploadBackup(remoteName, containerName, filePath):
 
 
 def deleteBackup(remoteName, containerName, fileName):
-    command = 'rclone deletefile ' + remoteName + ':' + containerName + fileName
+    command = str('rclone deletefile ' + remoteName + ':' + containerName + fileName)
     try:
         result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
         if result == 0:
