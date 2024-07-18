@@ -3,6 +3,7 @@ import sys
 from os import unlink, getenv
 from dotenv import load_dotenv
 from pathlib import Path
+import re
 import logging
 import functions
 
@@ -60,6 +61,8 @@ else:
                     logger.info("✅ Success upload: " + uploadBackupFilePath)
                     # Удаляем локальный бэкап если указано в настройках
                     if getenv('REMOVE_LOCAL_BACKUP', 'N') == 'Y':
+                        if functions.isAddNotesToBackupName() == True:
+                            uploadBackupFilePath = re.sub(r"_notes.*", '', uploadBackupFilePath)
                         unlink(BACKUP_LOCAL_DIR + uploadBackupFilePath)
                         logger.info("🗑✅ Remove local backup: " + uploadBackupFilePath)
 
