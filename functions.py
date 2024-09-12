@@ -98,13 +98,18 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
 # Загрузить бэкап в облако
 def uploadBackup(remoteName, containerName, filePath):
     if isAddNotesToBackupName() == True:
-        originalFile = re.sub(r"_notes.*",'',filePath)
+        originalFile = re.sub(r"_notes.*", '', filePath)
     else:
         originalFile = filePath
 
     fileName = path.basename(filePath)
 
-    command = 'rclone copyto ' + originalFile + ' ' + remoteName + ':' + containerName+'/'+fileName
+    bwLimit = getenv('BWLIMIT', '')
+    if bwLimit != '':
+        bwLimit = ' --bwlimit ' + bwLimit
+
+    command = 'rclone' + bwLimit + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
+    print(command)
     try:
         result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
         if result == 0:

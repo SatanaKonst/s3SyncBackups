@@ -11,3 +11,6 @@ TELEGRAM_TOKEN=
 TELEGRAM_BOT_CHAT_ID=
 TELEGRAM_MESSAGE_HEADER='Лог синхронизации резервных копий'
 ADD_NOTES_TO_BACKUP_NAME=N
+#  https://rclone.org/docs/#bwlimit-bandwidth-spec
+# Чтобы использовать единый лимит, укажите желаемую пропускную способность в КиБ/с или используйте суффикс B|K|M|G|T|P.
+BWLIMIT=
