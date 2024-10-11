@@ -109,24 +109,21 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
         bwLimit = ' --bwlimit ' + bwLimit
 
     # Кол-во потоков для загрузки
-    transfers = getenv('RCLONE_TRANSFERS', '')
-    if transfers != '':
-        transfers = ' --transfers ' + transfers
-    else:
-        transfers = ' --transfers 10'
+    transfers = getenv('TRANSFERS', '')
+    if transfers:
+        transfers = ' --transfers ' + str(transfers)
 
     # Добавляем вывод в файл
     if logFile != '':
         logFile = ' --log-file ' + logFile
 
-    command = 'rclone -v ' + transfers + bwLimit + logFile + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
+    command = 'rclone -v' + transfers + bwLimit + logFile + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
 
     try:
-        result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
-        if result == 0:
-            return True
-        else:
-            return False
+        p = subprocess.Popen(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
+        (output, err) = p.communicate()
+        p_status = p.wait()
+        return p_status == 0
     except subprocess.CalledProcessError as cpe:
         return False
 
