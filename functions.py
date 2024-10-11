@@ -189,7 +189,7 @@ def checkRunningScript(processName):
     (output, err) = p.communicate()
     p_status = p.wait()
     if p_status == 0:
-        result = output.splitlines('\n')
+        result = str(output).splitlines('\n')
         resultFilter = []
         for item in result:
             if str(item).find('grep') == -1:
