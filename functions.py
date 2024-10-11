@@ -70,6 +70,9 @@ def md5(fname):
 # Получить список бэкапов в облаке
 def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
     try:
+        if BACKUP_CONTAINER_NAME[-1] != '/':
+            BACKUP_CONTAINER_NAME += '/'
+
         command = 'rclone lsf ' + REMOTE_NAME + ':' + BACKUP_CONTAINER_NAME
         remoteBackupsTmp = subprocess.check_output(
             command,
@@ -99,7 +102,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
 def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if containerName[-1] != '/':
         containerName += '/'
-        
+
     if isAddNotesToBackupName() == True:
         originalFile = re.sub(r"_notes.*", '', filePath)
     else:
