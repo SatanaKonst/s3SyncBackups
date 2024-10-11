@@ -64,7 +64,8 @@ if len(remoteBackups) == 0:
                 logger.error('❌ Error upload backup ' + localBackupFileName)
             else:
                 logger.info('✅ Success upload ' + localBackupFileName)
-
+    else:
+        logger.info('Local backups empty')
 else:
     remoteBackupsGroup = functions.groupBackups(remoteBackups)
     localBackupsGroup = functions.groupBackups(localBackups)
