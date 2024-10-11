@@ -69,7 +69,6 @@ else:
     remoteBackupsGroup = functions.groupBackups(remoteBackups)
     localBackupsGroup = functions.groupBackups(localBackups)
 
-    exit()
     # Бежим по бэкапам локальным и смотрим есть ли в удаленных
     logger.info('▶ Start sync backups')
     for vmId in localBackupsGroup:
@@ -102,14 +101,13 @@ else:
 
                         if not isDryRun:
                             unlink(BACKUP_LOCAL_DIR + uploadBackupFilePath)
-
-                        logger.info("🗑✅ Remove local backup: " + uploadBackupFilePath)
+                            logger.info("🗑✅ Remove local backup: " + uploadBackupFilePath)
 
     # Чистим облако от старых бэкапов
     if not isDryRun:
         errors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
         if len(errors) > 0:
-            logger.info("♻ Clear remote storage\n" + ", ".join(errors))
+            logger.info("\n♻ Clear remote storage\n" + "\n".join(errors))
 
 logger.info('⏹ End sync backups')
 

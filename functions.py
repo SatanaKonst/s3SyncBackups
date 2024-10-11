@@ -133,8 +133,10 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
 def deleteBackup(remoteName, containerName, fileName):
     command = str('rclone deletefile ' + remoteName + ':' + containerName + fileName)
     try:
-        result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
-        if result == 0:
+        p = subprocess.Popen(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
+        (output, err) = p.communicate()
+        p_status = p.wait()
+        if p_status == 0:
             return True
         else:
             return False
@@ -182,10 +184,16 @@ def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
 
 # Проверка что скрипт уже запущен
 def checkRunningScript(processName):
-    result = subprocess.Popen('ps aux | grep ' + str(processName), shell=True, executable="/bin/bash",
-                              stdout=subprocess.PIPE).stdout.read().splitlines('\n')
-    resultFilter = []
-    for item in result:
-        if str(item).find('grep') == -1:
-            resultFilter.append(item)
-    return len(resultFilter) > 1
+    p = subprocess.Popen('ps aux | grep ' + str(processName), shell=True, executable="/bin/bash",
+                         stdout=subprocess.PIPE)
+    (output, err) = p.communicate()
+    p_status = p.wait()
+    if p_status == 0:
+        result = output.splitlines('\n')
+        resultFilter = []
+        for item in result:
+            if str(item).find('grep') == -1:
+                resultFilter.append(item)
+        return len(resultFilter) > 1
+
+    return False
