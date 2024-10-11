@@ -123,7 +123,7 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if logFile != '':
         logFile = ' --log-file ' + logFile
 
-    command = 'rclone -v' + transfers + bwLimit + logFile + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
+    command = 'rclone -v' + transfers + bwLimit + logFile + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + fileName
 
     try:
         p = subprocess.Popen(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
