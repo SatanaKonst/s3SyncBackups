@@ -96,7 +96,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
 
 
 # Загрузить бэкап в облако
-def uploadBackup(remoteName, containerName, filePath):
+def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if isAddNotesToBackupName() == True:
         originalFile = re.sub(r"_notes.*", '', filePath)
     else:
@@ -108,8 +108,19 @@ def uploadBackup(remoteName, containerName, filePath):
     if bwLimit != '':
         bwLimit = ' --bwlimit ' + bwLimit
 
-    command = 'rclone' + bwLimit + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
-    print(command)
+    # Кол-во потоков для загрузки
+    transfers = getenv('RCLONE_TRANSFERS', '')
+    if transfers != '':
+        transfers = ' --transfers ' + transfers
+    else:
+        transfers = ' --transfers 10'
+
+    # Добавляем вывод в файл
+    if logFile != '':
+        logFile = ' --log-file ' + logFile
+
+    command = 'rclone -v ' + transfers + bwLimit + logFile + ' copyto ' + originalFile + ' ' + remoteName + ':' + containerName + '/' + fileName
+
     try:
         result = subprocess.check_call(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
         if result == 0:
@@ -155,6 +166,7 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
     return errors
 
 
+# Отправка сообщения в телеграм
 def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
     url = 'https://api.telegram.org/bot' + bot_token + '/sendMessage'
     headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
@@ -169,3 +181,14 @@ def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
         headers=headers
     )
     return response.json()
+
+
+# Проверка что скрипт уже запущен
+def checkRunningScript(processName):
+    result = subprocess.Popen('ps aux | grep ' + str(processName), shell=True, executable="/bin/bash",
+                              stdout=subprocess.PIPE).stdout.read().splitlines('\n')
+    resultFilter = []
+    for item in result:
+        if str(item).find('grep') == -1:
+            resultFilter.append(item)
+    return len(resultFilter) > 1

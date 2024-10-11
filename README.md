@@ -23,7 +23,12 @@ vzdump-qemu-100-2024_02_30-15_42_45.vma.zst
 3. Установить зависимости ```pip install -r requirements.txt```
 4. Запустить ```python3.12 backupsSync.py```
 
-# Параметры
+# Параметры запуска
+```
+--dry-run - режим эмитации
+```
+
+# Переменные env
 ```
 LOG_FILE - название файла лога
 REMOTE_NAME - название подключения к s3
@@ -37,4 +42,5 @@ TELEGRAM_TOKEN - токен телеги
 TELEGRAM_BOT_CHAT_ID - чат в телеге
 TELEGRAM_MESSAGE_HEADER - Заголовок уведомлениия
 ADD_NOTES_TO_BACKUP_NAME - добавляет md5 от файла .notes (для возможности синхронизировать бэкапы из разных расписаний)
+BWLIMIT -  ограничение полосы канала
 ```
