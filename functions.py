@@ -97,6 +97,9 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
 
 # Загрузить бэкап в облако
 def uploadBackup(remoteName, containerName, filePath, logFile=''):
+    if containerName[-1] != '/':
+        containerName += '/'
+        
     if isAddNotesToBackupName() == True:
         originalFile = re.sub(r"_notes.*", '', filePath)
     else:
@@ -131,6 +134,8 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
 
 
 def deleteBackup(remoteName, containerName, fileName):
+    if containerName[-1] != '/':
+        containerName += '/'
     command = str('rclone deletefile ' + remoteName + ':' + containerName + fileName)
     try:
         p = subprocess.Popen(command, shell=True, executable="/bin/bash", stderr=subprocess.STDOUT)
