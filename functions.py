@@ -195,7 +195,9 @@ def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
 
 # Проверка что скрипт уже запущен
 def checkRunningScript():
-    lock_file = str(Path(__file__).parent.resolve()) + 'backup_sync.lock'
+    lock_file = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
+    print(lock_file)
+    exit()
     # Проверяем, существует ли файл блокировки
     if Path(lock_file).exists():
         print('Синхронизация уже работает')
@@ -205,8 +207,7 @@ def checkRunningScript():
     with open(lock_file, 'w') as lock:
         lock.write(str(os.getpid()))  # записываем PID процесса
 
-    return False
-
 def unlockProcess():
     lock_file = str(Path(__file__).parent.resolve()) + 'backup_sync.lock'
-    os.unlink(lock_file)
+    if(Path(lock_file).exists()):
+        os.unlink(lock_file)
