@@ -118,7 +118,7 @@ try:
         )
 
     # Отправляем сообщение в телеграмм
-    if not isDryRun and getenv('SEND_TELEGRAM') == 'Y':
+    if getenv('SEND_TELEGRAM') == 'Y':
         sendResponse = functions.telegram_bot_sendtext(
             getenv('TELEGRAM_TOKEN'),
             getenv('TELEGRAM_BOT_CHAT_ID'),
