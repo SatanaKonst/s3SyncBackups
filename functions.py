@@ -208,6 +208,6 @@ def checkRunningScript():
         lock.write(str(os.getpid()))  # записываем PID процесса
 
 def unlockProcess():
-    lock_file = str(Path(__file__).parent.resolve()) + 'backup_sync.lock'
+    lock_file = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
     if(Path(lock_file).exists()):
         os.unlink(lock_file)
