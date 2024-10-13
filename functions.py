@@ -1,7 +1,10 @@
 import hashlib
 import json
+import os
 import re
 import subprocess
+from pathlib import Path
+
 import requests
 from os import walk, getenv, path
 
@@ -191,17 +194,19 @@ def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
 
 
 # Проверка что скрипт уже запущен
-def checkRunningScript(processName):
-    p = subprocess.Popen('ps aux | grep ' + str(processName), shell=True, executable="/bin/bash",
-                         stdout=subprocess.PIPE)
-    (output, err) = p.communicate()
-    p_status = p.wait()
-    if p_status == 0:
-        result = str(output).split('\n')
-        resultFilter = []
-        for item in result:
-            if str(item).find('grep') == -1:
-                resultFilter.append(item)
-        return len(resultFilter) > 1
+def checkRunningScript():
+    lock_file = str(Path(__file__).parent.resolve()) + 'backup_sync.lock'
+    # Проверяем, существует ли файл блокировки
+    if Path(lock_file).exists():
+        print('Синхронизация уже работает')
+        exit()
+
+    # Создаем файл блокировки
+    with open(lock_file, 'w') as lock:
+        lock.write(str(os.getpid()))  # записываем PID процесса
 
     return False
+
+def unlockProcess():
+    lock_file = str(Path(__file__).parent.resolve()) + 'backup_sync.lock'
+    os.unlink(lock_file)
