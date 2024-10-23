@@ -37,8 +37,14 @@ try:
     BACKUP_CONTAINER_NAME = getenv('BACKUP_CONTAINER_NAME')
     BACKUP_LOCAL_DIR = getenv('BACKUP_LOCAL_DIR')
 
+    if not REMOTE_NAME or not BACKUP_CONTAINER_NAME or not BACKUP_LOCAL_DIR:
+        print('Не заполнены настройки для выгрузки файлов')
+        exit()
+
     # Кол-во хранимых бэкапов
     BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT'))
+    if not BACKUP_SAVE_COUNT:
+        BACKUP_SAVE_COUNT = 1
 
     localBackups = functions.getLocalBackups(BACKUP_LOCAL_DIR)
     remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)

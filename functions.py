@@ -17,6 +17,9 @@ def groupBackups(backups):
         remoteBackup = remoteBackup.strip()
         # Получим номер ВМ
         groupRegex = getenv('GROUP_BACKUP_REGEX', r"-\d{3}-")
+        if not groupRegex:
+            groupRegex = r"-\d{3}-"
+
         groupRegex = "{}".format(groupRegex)
         vmNumber = re.findall(groupRegex, remoteBackup)
         if len(vmNumber) > 0:
@@ -39,7 +42,12 @@ def groupBackups(backups):
 def getLocalBackups(dir):
     localBackupsTmp = next(walk(dir), (None, None, []))[2]  # [] if no file
     localBackups = []
-    filterRegex = "{}".format(getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)"))
+
+    regex = getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)")
+    if not regex:
+        regex = r"vzdump-qemu.*zst($|\n)"
+
+    filterRegex = "{}".format(regex)
     for backup in localBackupsTmp:
         file = re.findall(filterRegex, str(backup))
         if (len(file) > 0):
@@ -85,11 +93,13 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
         )
         remoteBackupsTmp = remoteBackupsTmp.decode("utf-8").strip().split('\n')
         remoteBackups = []
+        regex = getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)")
+        if not regex:
+            regex =  r"vzdump-qemu.*zst($|\n)"
+
         for backup in remoteBackupsTmp:
             file = re.findall(
-                "{}".format(
-                    getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)")
-                ),
+                "{}".format(regex),
                 str(backup)
             )
             if (len(file) > 0):
@@ -205,7 +215,8 @@ def checkRunningScript():
     with open(lock_file, 'w') as lock:
         lock.write(str(os.getpid()))  # записываем PID процесса
 
+
 def unlockProcess():
     lock_file = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
-    if(Path(lock_file).exists()):
+    if (Path(lock_file).exists()):
         os.unlink(lock_file)
