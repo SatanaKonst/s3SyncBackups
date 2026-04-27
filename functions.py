@@ -188,7 +188,8 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
 
 # Отправка сообщения в телеграм
 def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
-    url = 'https://api.telegram.org/bot' + bot_token + '/sendMessage'
+    tgBaseUrl = getenv('TG_BASE_URL','https://api.telegram.org').rstrip('/')
+    url = f'{tgBaseUrl}/bot{bot_token}/sendMessage'
     headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
     data = {
         "chat_id": bot_chatID,
