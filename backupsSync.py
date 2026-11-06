@@ -20,7 +20,7 @@ try:
         mkdir(LOG_DIR)
 
     currentTime = str(datetime.datetime.now()).replace(' ', '_')
-    LOG_FILE = LOG_DIR + getenv('LOG_FILE') + '_' + currentTime
+    LOG_FILE = LOG_DIR + getenv('LOG_FILE', 'backupsSync.log') + '_' + currentTime
 
     logger = logging.getLogger(__name__)
     logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.DEBUG)
@@ -120,7 +120,7 @@ try:
     # Печатаем лог если режим эмитации
     if isDryRun:
         print(
-            Path(getenv('LOG_FILE')).read_text()
+            Path(LOG_FILE).read_text()
         )
 
     # Отправляем сообщение в телеграмм
@@ -132,7 +132,7 @@ try:
             "🔆Complete Sync backups."
         )
         print(sendResponse)
-        unlink(getenv('LOG_FILE'))
+        unlink(LOG_FILE)
 
     print('End sync backups')
 finally:
