@@ -186,22 +186,25 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
     return errors
 
 
-# Отправка сообщения в телеграм
+# Отправка сообщения в телеграм, длинные сообщения дробятся на части (лимит Telegram 4096 символов)
 def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
     tgBaseUrl = getenv('TG_BASE_URL','https://api.telegram.org').rstrip('/')
     url = f'{tgBaseUrl}/bot{bot_token}/sendMessage'
     headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-    data = {
-        "chat_id": bot_chatID,
-        "parse_mode": "Markdown",
-        "text": bot_message
-    }
-    response = requests.post(
-        url,
-        data=json.dumps(data),
-        headers=headers
-    )
-    return response.json()
+    responses = []
+    for i in range(0, len(bot_message), 4000):
+        data = {
+            "chat_id": bot_chatID,
+            "parse_mode": "Markdown",
+            "text": bot_message[i:i + 4000]
+        }
+        response = requests.post(
+            url,
+            data=json.dumps(data),
+            headers=headers
+        )
+        responses.append(response.json())
+    return responses
 
 
 # Проверка что скрипт уже запущен
