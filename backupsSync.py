@@ -39,9 +39,7 @@ try:
     logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.DEBUG)
 
     # Проверям на режим имитации
-    isDryRun = False
-    if len(sys.argv) > 1:
-        isDryRun = sys.argv[1] == '--dry-run'
+    isDryRun = '--dry-run' in sys.argv
 
     # Имя удаленного хранилища
     REMOTE_NAME = getenv('REMOTE_NAME')
