@@ -129,7 +129,7 @@ try:
             getenv('TELEGRAM_TOKEN'),
             getenv('TELEGRAM_BOT_CHAT_ID'),
             getenv('TELEGRAM_MESSAGE_HEADER') + "\n\n" +
-            "🔆Complete Sync backups."
+            "🔆Complete Sync backups.\n\n" + Path(LOG_FILE).read_text()
         )
         print(sendResponse)
         unlink(LOG_FILE)
