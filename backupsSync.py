@@ -125,11 +125,14 @@ try:
 
     # Отправляем сообщение в телеграмм (кроме dry-run и без заполненного токена)
     if not isDryRun and getenv('SEND_TELEGRAM') == 'Y' and getenv('TELEGRAM_TOKEN'):
+        remoteFiles = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
         sendResponse = functions.telegram_bot_sendtext(
             getenv('TELEGRAM_TOKEN'),
             getenv('TELEGRAM_BOT_CHAT_ID'),
             getenv('TELEGRAM_MESSAGE_HEADER') + "\n\n" +
-            "🔆Complete Sync backups.\n\n" + Path(LOG_FILE).read_text()
+            "🔆Complete Sync backups.\n\n" +
+            "📦 Backups in bucket:\n" + "\n".join(remoteFiles) + "\n\n" +
+            Path(LOG_FILE).read_text()
         )
         print(sendResponse)
         unlink(LOG_FILE)
