@@ -123,8 +123,8 @@ try:
             Path(LOG_FILE).read_text()
         )
 
-    # Отправляем сообщение в телеграмм
-    if getenv('SEND_TELEGRAM') == 'Y':
+    # Отправляем сообщение в телеграмм (кроме dry-run и без заполненного токена)
+    if not isDryRun and getenv('SEND_TELEGRAM') == 'Y' and getenv('TELEGRAM_TOKEN'):
         sendResponse = functions.telegram_bot_sendtext(
             getenv('TELEGRAM_TOKEN'),
             getenv('TELEGRAM_BOT_CHAT_ID'),
