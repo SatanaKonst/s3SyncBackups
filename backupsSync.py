@@ -1,6 +1,7 @@
 # Скрипт работает через rclone
 import sys
 import time
+import subprocess
 from os import unlink, getenv, mkdir
 from dotenv import load_dotenv
 from pathlib import Path
@@ -8,6 +9,18 @@ import re
 import datetime
 import logging
 import functions
+
+# Запуск в фоне: скрипт перезапускает себя отсоединённым процессом и сразу завершается
+if '--background' in sys.argv:
+    args = [a for a in sys.argv[1:] if a != '--background']
+    subprocess.Popen(
+        [sys.executable, str(Path(__file__).resolve())] + args,
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    print('Запущено в фоне, результат придёт в Telegram')
+    exit()
 
 try:
     # Проверим что скрипт не работает
