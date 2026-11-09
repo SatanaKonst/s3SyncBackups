@@ -1,6 +1,5 @@
 # Скрипт работает через rclone
 import sys
-import time
 import subprocess
 from os import unlink, getenv, mkdir
 from dotenv import load_dotenv
@@ -34,9 +33,10 @@ try:
 
     currentTime = str(datetime.datetime.now()).replace(' ', '_')
     LOG_FILE = LOG_DIR + getenv('LOG_FILE', 'backupsSync.log') + '_' + currentTime
+    functions.cleanupOldLogs(LOG_DIR)
 
     logger = logging.getLogger(__name__)
-    logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.INFO)
 
     # Проверям на режим имитации
     isDryRun = '--dry-run' in sys.argv
@@ -59,6 +59,32 @@ try:
 
     uploadedFiles = []
     deletedFiles = []
+    deleteErrors = []
+
+    # Загрузка одного бэкапа (в dry-run — имитация успеха)
+    def uploadOne(fileName):
+        if isDryRun:
+            return True
+        return functions.uploadBackup(
+            REMOTE_NAME,
+            BACKUP_CONTAINER_NAME,
+            BACKUP_LOCAL_DIR + fileName,
+            LOG_FILE
+        )
+
+    # Загрузка списка бэкапов: лог, отчёт, опциональное удаление локальной копии
+    def processUploads(files):
+        for fileName in files:
+            if not uploadOne(fileName):
+                logger.error('❌ Error upload backup: ' + fileName)
+                continue
+            logger.info('✅ Success upload: ' + fileName)
+            uploadedFiles.append(fileName)
+            # Удаляем локальный бэкап если указано в настройках
+            if getenv('REMOVE_LOCAL_BACKUP', 'N') == 'Y' and not isDryRun:
+                localName = re.sub(r"_notes.*", '', fileName) if functions.isAddNotesToBackupName() else fileName
+                unlink(BACKUP_LOCAL_DIR + localName)
+                logger.info("🗑✅ Remove local backup: " + localName)
 
     localBackups = functions.getLocalBackups(BACKUP_LOCAL_DIR)
     remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
@@ -67,23 +93,7 @@ try:
         logger.info('Remote backups empty')
         if len(localBackups) > 0:
             logger.info('▶ Start upload backups')
-            # Получим список локальных бэкапов
-            for localBackupFileName in localBackups:
-                if not isDryRun:
-                    uploadStatus = functions.uploadBackup(
-                        REMOTE_NAME,
-                        BACKUP_CONTAINER_NAME,
-                        BACKUP_LOCAL_DIR + localBackupFileName,
-                        LOG_FILE
-                    )
-                else:
-                    uploadStatus = True
-
-                if not uploadStatus:
-                    logger.error('❌ Error upload backup ' + localBackupFileName)
-                else:
-                    logger.info('✅ Success upload ' + localBackupFileName)
-                    uploadedFiles.append(localBackupFileName)
+            processUploads(localBackups)
         else:
             logger.info('Local backups empty')
     else:
@@ -100,36 +110,13 @@ try:
 
             # Загружаем бэкапы которых нет в облаке
             if len(localBackupsDiff) > 0:
-                for uploadBackupFilePath in localBackupsDiff:
-                    if not isDryRun:
-                        uploadStatus = functions.uploadBackup(
-                            REMOTE_NAME,
-                            BACKUP_CONTAINER_NAME,
-                            BACKUP_LOCAL_DIR + uploadBackupFilePath,
-                            LOG_FILE
-                        )
-                    else:
-                        uploadStatus = True
-
-                    if not uploadStatus:
-                        logger.error("❌ Error upload backup: " + uploadBackupFilePath)
-                    else:
-                        logger.info("✅ Success upload: " + uploadBackupFilePath)
-                        uploadedFiles.append(uploadBackupFilePath)
-                        # Удаляем локальный бэкап если указано в настройках
-                        if getenv('REMOVE_LOCAL_BACKUP', 'N') == 'Y':
-                            if functions.isAddNotesToBackupName():
-                                uploadBackupFilePath = re.sub(r"_notes.*", '', uploadBackupFilePath)
-
-                            if not isDryRun:
-                                unlink(BACKUP_LOCAL_DIR + uploadBackupFilePath)
-                                logger.info("🗑✅ Remove local backup: " + uploadBackupFilePath)
+                processUploads(localBackupsDiff)
 
         # Чистим облако от старых бэкапов
         if not isDryRun:
-            deletedFiles = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
-            if len(deletedFiles) > 0:
-                logger.info("\n♻ Clear remote storage\n" + "\n".join(deletedFiles))
+            deletedFiles, deleteErrors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
+            if deletedFiles or deleteErrors:
+                logger.info("\n♻ Clear remote storage\n" + "\n".join(deletedFiles + deleteErrors))
 
     logger.info('⏹ End sync backups')
 
@@ -145,22 +132,35 @@ try:
         if uploadedFiles:
             message += "✅ Uploaded:\n" + "\n".join(uploadedFiles) + "\n\n"
         if deletedFiles:
-            message += "🗑 Deleted from bucket:\n" + "\n".join(deletedFiles)
-        if uploadedFiles or deletedFiles:
+            message += "🗑 Deleted from bucket:\n" + "\n".join(deletedFiles) + "\n\n"
+        if deleteErrors:
+            message += "⚠️ Delete errors:\n" + "\n".join(deleteErrors)
+        if uploadedFiles or deletedFiles or deleteErrors:
             functions.telegram_bot_sendtext(
                 getenv('TELEGRAM_TOKEN'),
                 getenv('TELEGRAM_BOT_CHAT_ID'),
                 message
             )
         # Файлы в бакете (актуальное состояние после синка и чистки)
-        remoteFiles = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
+        try:
+            remoteFiles = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
+            bucketMessage = "📦 Backups in bucket:\n" + ("\n".join(remoteFiles) or "(пусто)")
+        except RuntimeError as e:
+            bucketMessage = "📦 Backups in bucket: ⚠️ ошибка получения списка\n" + str(e)
         functions.telegram_bot_sendtext(
             getenv('TELEGRAM_TOKEN'),
             getenv('TELEGRAM_BOT_CHAT_ID'),
-            "📦 Backups in bucket:\n" + "\n".join(remoteFiles)
+            bucketMessage
         )
         unlink(LOG_FILE)
 
     print('End sync backups')
+except Exception as e:
+    # Ошибка в лог-файл (важно для фонового запуска, где stderr потерян)
+    try:
+        logging.getLogger(__name__).exception('Fatal: %s', e)
+    except Exception:
+        print('Fatal: ' + str(e))
+    raise
 finally:
     functions.unlockProcess()
