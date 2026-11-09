@@ -53,9 +53,12 @@ try:
         exit()
 
     # Кол-во хранимых бэкапов
-    BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT'))
+    BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT', 1))
     if not BACKUP_SAVE_COUNT:
         BACKUP_SAVE_COUNT = 1
+
+    uploadedFiles = []
+    deletedFiles = []
 
     localBackups = functions.getLocalBackups(BACKUP_LOCAL_DIR)
     remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
@@ -80,6 +83,7 @@ try:
                     logger.error('❌ Error upload backup ' + localBackupFileName)
                 else:
                     logger.info('✅ Success upload ' + localBackupFileName)
+                    uploadedFiles.append(localBackupFileName)
         else:
             logger.info('Local backups empty')
     else:
@@ -111,6 +115,7 @@ try:
                         logger.error("❌ Error upload backup: " + uploadBackupFilePath)
                     else:
                         logger.info("✅ Success upload: " + uploadBackupFilePath)
+                        uploadedFiles.append(uploadBackupFilePath)
                         # Удаляем локальный бэкап если указано в настройках
                         if getenv('REMOVE_LOCAL_BACKUP', 'N') == 'Y':
                             if functions.isAddNotesToBackupName():
@@ -122,9 +127,9 @@ try:
 
         # Чистим облако от старых бэкапов
         if not isDryRun:
-            errors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
-            if len(errors) > 0:
-                logger.info("\n♻ Clear remote storage\n" + "\n".join(errors))
+            deletedFiles = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
+            if len(deletedFiles) > 0:
+                logger.info("\n♻ Clear remote storage\n" + "\n".join(deletedFiles))
 
     logger.info('⏹ End sync backups')
 
@@ -136,21 +141,22 @@ try:
 
     # Отправляем сообщение в телеграмм (кроме dry-run и без заполненного токена)
     if not isDryRun and getenv('SEND_TELEGRAM') == 'Y' and getenv('TELEGRAM_TOKEN'):
-        telegramArgs = (
-            getenv('TELEGRAM_TOKEN'),
-            getenv('TELEGRAM_BOT_CHAT_ID'),
-        )
-        # 1. Информация о синхронизации (лог: загрузки, удаления)
-        functions.telegram_bot_sendtext(
-            *telegramArgs,
-            getenv('TELEGRAM_MESSAGE_HEADER') + "\n\n" +
-            "🔆Complete Sync backups.\n\n" +
-            Path(LOG_FILE).read_text()
-        )
-        # 2. Файлы в бакете (актуальное состояние после синка и чистки)
+        message = getenv('TELEGRAM_MESSAGE_HEADER') + "\n\n"
+        if uploadedFiles:
+            message += "✅ Uploaded:\n" + "\n".join(uploadedFiles) + "\n\n"
+        if deletedFiles:
+            message += "🗑 Deleted from bucket:\n" + "\n".join(deletedFiles)
+        if uploadedFiles or deletedFiles:
+            functions.telegram_bot_sendtext(
+                getenv('TELEGRAM_TOKEN'),
+                getenv('TELEGRAM_BOT_CHAT_ID'),
+                message
+            )
+        # Файлы в бакете (актуальное состояние после синка и чистки)
         remoteFiles = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
         functions.telegram_bot_sendtext(
-            *telegramArgs,
+            getenv('TELEGRAM_TOKEN'),
+            getenv('TELEGRAM_BOT_CHAT_ID'),
             "📦 Backups in bucket:\n" + "\n".join(remoteFiles)
         )
         unlink(LOG_FILE)

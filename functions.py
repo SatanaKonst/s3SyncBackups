@@ -93,9 +93,9 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
         )
         remoteBackupsTmp = remoteBackupsTmp.decode("utf-8").strip().split('\n')
         remoteBackups = []
-        regex = getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst($|\n)")
+        regex = getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst(_notes:.+)?($|\n)")
         if not regex:
-            regex =  r"vzdump-qemu.*zst($|\n)"
+            regex =  r"vzdump-qemu.*zst(_notes:.+)?($|\n)"
 
         for backup in remoteBackupsTmp:
             file = re.findall(
