@@ -3,17 +3,25 @@ REMOTE_NAME='my-backup'
 BACKUP_CONTAINER_NAME='storages/backups'
 BACKUP_LOCAL_DIR='/home/user/backups/'
 BACKUP_SAVE_COUNT=3
-SELECTED_BACKUP_REGEX='vzdump-qemu.*zst($|\z|\n)'
+# Регекс фильтра имён бэкапов. Для ADD_NOTES_TO_BACKUP_NAME=Y нужен вариант с (_notes:.+)?
+# Без notes:      'vzdump-qemu.*\.zst$'
+# С notes:        'vzdump-qemu.*\.zst(_notes:.+)?$'
+# Только qemu-VM: 'vzdump-qemu-\d{3}-.*\.zst(_notes:.+)?$'
+# Внимание: \z в Python re не существует — используйте $
+SELECTED_BACKUP_REGEX='vzdump-qemu.*\.zst(_notes:.+)?$'
+# Регекс группы VM (ключ группировки для ретеншена), по умолчанию 3 цифры между дефисами
+# Примеры: '-\d{3}-' → vzdump-qemu-100-...; '-\d+-' → любое число
 GROUP_BACKUP_REGEX='-\d{3}-'
 REMOVE_LOCAL_BACKUP='N'
 SEND_TELEGRAM='Y'
-TG_BASE_URL=
+# TG_BASE_URL=https://api.telegram.org
 TELEGRAM_TOKEN=
 TELEGRAM_BOT_CHAT_ID=
 TELEGRAM_MESSAGE_HEADER='Лог синхронизации резервных копий'
 ADD_NOTES_TO_BACKUP_NAME=N
 #  https://rclone.org/docs/#bwlimit-bandwidth-spec
 # Чтобы использовать единый лимит, укажите желаемую пропускную способность в КиБ/с или используйте суффикс B|K|M|G|T|P.
-BWLIMIT=
+# (rclone читает эти переменные сам — пустое значение ломает его, поэтому закомментировано)
+# BWLIMIT=10M
 #Кол-во потоков для загрузки
-RCLONE_TRANSFERS=
+# RCLONE_TRANSFERS=4

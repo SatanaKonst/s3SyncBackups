@@ -40,6 +40,20 @@ try:
 
     # Проверям на режим имитации
     isDryRun = '--dry-run' in sys.argv
+    # --dump-tg: сообщение для телеграма пишем в файл вместо отправки
+    isDumpTg = '--dump-tg' in sys.argv
+
+    # Отправка в телеграм или сброс в файл логов (--dump-tg)
+    def sendToTelegram(message):
+        if isDumpTg:
+            with open(LOG_DIR + 'telegram_' + currentTime + '.txt', 'a', encoding='utf-8') as dumpFile:
+                dumpFile.write(message + '\n')
+        else:
+            functions.telegram_bot_sendtext(
+                getenv('TELEGRAM_TOKEN'),
+                getenv('TELEGRAM_BOT_CHAT_ID'),
+                message
+            )
 
     # Имя удаленного хранилища
     REMOTE_NAME = getenv('REMOTE_NAME')
@@ -48,13 +62,39 @@ try:
     BACKUP_CONTAINER_NAME = getenv('BACKUP_CONTAINER_NAME')
     BACKUP_LOCAL_DIR = getenv('BACKUP_LOCAL_DIR')
 
-    if not REMOTE_NAME or not BACKUP_CONTAINER_NAME or not BACKUP_LOCAL_DIR:
-        print('Не заполнены настройки для выгрузки файлов')
+    # Обязательные настройки: пустые или из пробелов считаем незаполненными
+    missing = [
+        key for key, value in {
+            'REMOTE_NAME': REMOTE_NAME,
+            'BACKUP_CONTAINER_NAME': BACKUP_CONTAINER_NAME,
+            'BACKUP_LOCAL_DIR': BACKUP_LOCAL_DIR,
+        }.items() if not value or not value.strip()
+    ]
+    if missing:
+        print('Не заполнены настройки для выгрузки файлов: ' + ', '.join(missing))
+        exit()
+
+    # Склеиваем пути конкатенацией — нормализуем слэш на конце
+    BACKUP_LOCAL_DIR = BACKUP_LOCAL_DIR.strip().rstrip('/') + '/'
+    if not Path(BACKUP_LOCAL_DIR).is_dir():
+        print('Директория бэкапов не существует: ' + BACKUP_LOCAL_DIR)
+        exit()
+
+    # Регексы должны компилироваться, иначе падение в середине работы
+    try:
+        for envKey in ('SELECTED_BACKUP_REGEX', 'GROUP_BACKUP_REGEX'):
+            re.compile(getenv(envKey) or '')
+    except re.error as e:
+        print('Некорректный регекс в настройках: ' + str(e))
         exit()
 
     # Кол-во хранимых бэкапов
-    BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT', 1))
-    if not BACKUP_SAVE_COUNT:
+    try:
+        BACKUP_SAVE_COUNT = int(getenv('BACKUP_SAVE_COUNT') or 1)
+    except ValueError:
+        print('BACKUP_SAVE_COUNT должно быть числом')
+        exit()
+    if BACKUP_SAVE_COUNT < 1:
         BACKUP_SAVE_COUNT = 1
 
     uploadedFiles = []
@@ -87,6 +127,14 @@ try:
                 logger.info("🗑✅ Remove local backup: " + localName)
 
     localBackups = functions.getLocalBackups(BACKUP_LOCAL_DIR)
+
+    # Локальные бэкапы старше лимита не грузим: иначе карусель upload->delete на каждом прогоне
+    localBackupsGroup = functions.groupBackups(localBackups)
+    localBackups = []
+    for files in localBackupsGroup.values():
+        localBackups += sorted(files, key=functions.backupDateKey, reverse=True)[:BACKUP_SAVE_COUNT]
+    localBackupsGroup = functions.groupBackups(localBackups)
+
     remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
 
     if len(remoteBackups) == 0:
@@ -98,7 +146,6 @@ try:
             logger.info('Local backups empty')
     else:
         remoteBackupsGroup = functions.groupBackups(remoteBackups)
-        localBackupsGroup = functions.groupBackups(localBackups)
 
         # Бежим по бэкапам локальным и смотрим есть ли в удаленных
         logger.info('▶ Start sync backups')
@@ -106,17 +153,31 @@ try:
             if not vmId in remoteBackupsGroup:
                 remoteBackupsGroup[vmId] = []
 
-            localBackupsDiff = list(set(localBackupsGroup[vmId]) - set(remoteBackupsGroup[vmId]))
+            # Окно ретеншена считаем по объединению локальных и облачных:
+            # иначе локальный хвост вне лимита вечно ре-аплоадится и удаляется
+            candidates = remoteBackupsGroup[vmId] + localBackupsGroup[vmId]
+            keepSet = {
+                functions.normalizeBackupName(b)
+                for b in sorted(candidates, key=functions.backupDateKey, reverse=True)[:BACKUP_SAVE_COUNT]
+            }
+
+            # Сравниваем по нормализованным именам: дубли с _ и без не грузятся повторно
+            remoteSet = {functions.normalizeBackupName(b) for b in remoteBackupsGroup[vmId]}
+            localBackupsDiff = [
+                b for b in localBackupsGroup[vmId]
+                if functions.normalizeBackupName(b) in keepSet
+                and functions.normalizeBackupName(b) not in remoteSet
+            ]
 
             # Загружаем бэкапы которых нет в облаке
             if len(localBackupsDiff) > 0:
                 processUploads(localBackupsDiff)
 
-        # Чистим облако от старых бэкапов
-        if not isDryRun:
-            deletedFiles, deleteErrors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
-            if deletedFiles or deleteErrors:
-                logger.info("\n♻ Clear remote storage\n" + "\n".join(deletedFiles + deleteErrors))
+    # Чистим облако от старых бэкапов (после любой загрузки, иначе первый прогон нарушает лимит)
+    if not isDryRun:
+        deletedFiles, deleteErrors = functions.clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME)
+        if deletedFiles or deleteErrors:
+            logger.info("\n♻ Clear remote storage\n" + "\n".join(deletedFiles + deleteErrors))
 
     logger.info('⏹ End sync backups')
 
@@ -126,8 +187,8 @@ try:
             Path(LOG_FILE).read_text()
         )
 
-    # Отправляем сообщение в телеграмм (кроме dry-run и без заполненного токена)
-    if not isDryRun and getenv('SEND_TELEGRAM') == 'Y' and getenv('TELEGRAM_TOKEN'):
+    # Отправляем сообщение в телеграмм (кроме dry-run; --dump-tg пишет в файл, токен не нужен)
+    if not isDryRun and (isDumpTg or (getenv('SEND_TELEGRAM') == 'Y' and getenv('TELEGRAM_TOKEN'))):
         message = getenv('TELEGRAM_MESSAGE_HEADER') + "\n\n"
         if uploadedFiles:
             message += "✅ Uploaded:\n" + "\n".join(uploadedFiles) + "\n\n"
@@ -136,23 +197,14 @@ try:
         if deleteErrors:
             message += "⚠️ Delete errors:\n" + "\n".join(deleteErrors)
         if uploadedFiles or deletedFiles or deleteErrors:
-            functions.telegram_bot_sendtext(
-                getenv('TELEGRAM_TOKEN'),
-                getenv('TELEGRAM_BOT_CHAT_ID'),
-                message
-            )
+            sendToTelegram(message)
         # Файлы в бакете (актуальное состояние после синка и чистки)
         try:
             remoteFiles = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
             bucketMessage = "📦 Backups in bucket:\n" + ("\n".join(remoteFiles) or "(пусто)")
         except RuntimeError as e:
             bucketMessage = "📦 Backups in bucket: ⚠️ ошибка получения списка\n" + str(e)
-        functions.telegram_bot_sendtext(
-            getenv('TELEGRAM_TOKEN'),
-            getenv('TELEGRAM_BOT_CHAT_ID'),
-            bucketMessage
-        )
-        unlink(LOG_FILE)
+        sendToTelegram(bucketMessage)
 
     print('End sync backups')
 except Exception as e:

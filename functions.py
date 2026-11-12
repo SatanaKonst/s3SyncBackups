@@ -3,7 +3,6 @@ import json
 import os
 import re
 import subprocess
-import time
 from pathlib import Path
 
 import requests
@@ -28,6 +27,18 @@ def groupBackups(backups):
         key = vmNumber.group(0).strip('-') if vmNumber else 'noVmFiles'
         vmBackupGroups.setdefault(key, []).append(remoteBackup)
     return vmBackupGroups
+
+
+# Нормализованное имя: убираем подчёркивания, чтобы варианты
+# 2026_11_06-18_36_01 и 20261106-183601 считались одним бэкапом
+def normalizeBackupName(name):
+    return name.replace('_', '')
+
+
+# Дата из имени бэкапа для сортировки по времени, а не по строке
+def backupDateKey(name):
+    m = re.search(r'(\d{4})_?(\d{2})_?(\d{2})-?(\d{2})_?(\d{2})_?(\d{2})', name)
+    return m.groups() if m else ('0',)
 
 
 def getLocalBackups(dir):
@@ -96,7 +107,7 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
 
     fileName = path.basename(filePath)
 
-    command = ['rclone']
+    command = ['rclone', 'copyto']
     bwLimit = getenv('BWLIMIT', '')
     if bwLimit:
         command += ['--bwlimit', bwLimit]
@@ -110,7 +121,7 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if logFile != '':
         command += ['--log-file', logFile]
 
-    command += ['copyto', originalFile, remoteName + ':' + containerName + fileName]
+    command += [originalFile, remoteName + ':' + containerName + fileName]
 
     p = subprocess.Popen(command)
     return p.wait() == 0
@@ -131,7 +142,7 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
     errors = []
     for vmId in remoteBackupsGroup:
         if (len(remoteBackupsGroup[vmId]) > BACKUP_SAVE_COUNT):
-            backups = sorted(remoteBackupsGroup[vmId], reverse=True)
+            backups = sorted(remoteBackupsGroup[vmId], key=backupDateKey, reverse=True)
             backupsForRemove = backups[BACKUP_SAVE_COUNT::]
             for backupForRemove in backupsForRemove:
                 result = deleteBackup(REMOTE_NAME, BACKUP_CONTAINER_NAME, backupForRemove)
@@ -145,7 +156,7 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
 
 # Отправка сообщения в телеграм, длинные сообщения дробятся на части (лимит Telegram 4096 символов)
 def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
-    tgBaseUrl = getenv('TG_BASE_URL','https://api.telegram.org').rstrip('/')
+    tgBaseUrl = (getenv('TG_BASE_URL') or 'https://api.telegram.org').rstrip('/')
     url = f'{tgBaseUrl}/bot{bot_token}/sendMessage'
     headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
     responses = []
@@ -193,12 +204,12 @@ def checkRunningScript():
         lock.write(str(os.getpid()))  # записываем PID процесса
 
 
-# Удалить логи старше N дней
-def cleanupOldLogs(logDir, keepDays=14):
-    prefix = getenv('LOG_FILE', 'backupsSync.log') + '_'
-    cutoff = time.time() - keepDays * 86400
-    for f in Path(logDir).glob(prefix + '*'):
-        if f.stat().st_mtime < cutoff:
+# Оставить только последние N логов (и телеграм-дампов), остальные удалить
+def cleanupOldLogs(logDir, keepCount=10):
+    prefixes = [getenv('LOG_FILE', 'backupsSync.log') + '_', 'telegram_']
+    for prefix in prefixes:
+        logs = sorted(Path(logDir).glob(prefix + '*'), key=lambda f: f.stat().st_mtime, reverse=True)
+        for f in logs[keepCount:]:
             f.unlink()
 
 
