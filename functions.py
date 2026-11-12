@@ -10,11 +10,10 @@ from os import walk, getenv, path
 
 
 # Проверка имени бэкапа по фильтру из настроек
+DEFAULT_BACKUP_REGEX = r"vzdump-qemu.*zst(_notes:.+)?($|\n)"
+
 def matchBackupName(name):
-    regex = getenv('SELECTED_BACKUP_REGEX', r"vzdump-qemu.*zst(_notes:.+)?($|\n)")
-    if not regex:
-        regex = r"vzdump-qemu.*zst(_notes:.+)?($|\n)"
-    return bool(re.search(regex, name))
+    return bool(re.search(getenv('SELECTED_BACKUP_REGEX') or DEFAULT_BACKUP_REGEX, name))
 
 
 # Сгруппировать бэкапы по номеру виртуальной машины
@@ -42,20 +41,13 @@ def backupDateKey(name):
 
 
 def getLocalBackups(dir):
-    localBackupsTmp = next(walk(dir), (None, None, []))[2]  # [] if no file
-    localBackups = []
-
-    for backup in localBackupsTmp:
-        if matchBackupName(backup):
-            # берем файл описания
-            backup = addNotesToBackupName(backup, dir)
-            localBackups.append(backup)
-    return localBackups
+    files = next(walk(dir), (None, None, []))[2]  # [] if no file
+    return [addNotesToBackupName(backup, dir) for backup in files if matchBackupName(backup)]
 
 
 def addNotesToBackupName(backupName, dir):
     notesFilePath = dir + backupName + '.notes'
-    if isAddNotesToBackupName() == True and path.isfile(notesFilePath):
+    if isAddNotesToBackupName() and path.isfile(notesFilePath):
         backupName = backupName + '_notes:' + md5(notesFilePath)
     return backupName
 
@@ -87,12 +79,7 @@ def getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME):
     except subprocess.CalledProcessError as cpe:
         raise RuntimeError('rclone lsf failed: ' + cpe.output.decode('utf-8', 'replace').strip())
 
-    remoteBackups = []
-    for backup in remoteBackupsTmp:
-        if matchBackupName(str(backup)):
-            remoteBackups.append(str(backup))
-
-    return remoteBackups
+    return [backup for backup in remoteBackupsTmp if matchBackupName(backup)]
 
 
 # Загрузить бэкап в облако
@@ -100,10 +87,8 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if containerName[-1] != '/':
         containerName += '/'
 
-    if isAddNotesToBackupName() == True:
-        originalFile = re.sub(r"_notes.*", '', filePath)
-    else:
-        originalFile = filePath
+    if isAddNotesToBackupName():
+        filePath = re.sub(r"_notes.*", '', filePath)
 
     fileName = path.basename(filePath)
 
@@ -121,17 +106,15 @@ def uploadBackup(remoteName, containerName, filePath, logFile=''):
     if logFile != '':
         command += ['--log-file', logFile]
 
-    command += [originalFile, remoteName + ':' + containerName + fileName]
+    command += [filePath, remoteName + ':' + containerName + fileName]
 
-    p = subprocess.Popen(command)
-    return p.wait() == 0
+    return subprocess.call(command) == 0
 
 
 def deleteBackup(remoteName, containerName, fileName):
     if containerName[-1] != '/':
         containerName += '/'
-    p = subprocess.Popen(['rclone', 'deletefile', remoteName + ':' + containerName + fileName])
-    return p.wait() == 0
+    return subprocess.call(['rclone', 'deletefile', remoteName + ':' + containerName + fileName]) == 0
 
 
 # Очистить облако до кол-ва хранимых бэкапов
@@ -142,8 +125,7 @@ def clearRemoteBackups(BACKUP_SAVE_COUNT, REMOTE_NAME, BACKUP_CONTAINER_NAME):
     errors = []
     for vmId in remoteBackupsGroup:
         if (len(remoteBackupsGroup[vmId]) > BACKUP_SAVE_COUNT):
-            backups = sorted(remoteBackupsGroup[vmId], key=backupDateKey, reverse=True)
-            backupsForRemove = backups[BACKUP_SAVE_COUNT::]
+            backupsForRemove = sorted(remoteBackupsGroup[vmId], key=backupDateKey, reverse=True)[BACKUP_SAVE_COUNT:]
             for backupForRemove in backupsForRemove:
                 result = deleteBackup(REMOTE_NAME, BACKUP_CONTAINER_NAME, backupForRemove)
                 if result == False:
@@ -179,12 +161,13 @@ def telegram_bot_sendtext(bot_token, bot_chatID, bot_message):
 
 
 # Проверка что скрипт уже запущен (мёртвые lock-файлы убираем)
+LOCK_FILE = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
+
 def checkRunningScript():
-    lock_file = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
-    if Path(lock_file).exists():
+    if Path(LOCK_FILE).exists():
         running = False
         try:
-            pid = int(Path(lock_file).read_text().strip())
+            pid = int(Path(LOCK_FILE).read_text().strip())
             os.kill(pid, 0)
             running = True
         except ValueError:
@@ -197,10 +180,10 @@ def checkRunningScript():
         if running:
             print('Синхронизация уже работает')
             exit()
-        os.unlink(lock_file)
+        os.unlink(LOCK_FILE)
 
     # Создаем файл блокировки
-    with open(lock_file, 'w') as lock:
+    with open(LOCK_FILE, 'w') as lock:
         lock.write(str(os.getpid()))  # записываем PID процесса
 
 
@@ -214,6 +197,5 @@ def cleanupOldLogs(logDir, keepCount=10):
 
 
 def unlockProcess():
-    lock_file = str(Path(__file__).parent.resolve()) + '/backup_sync.lock'
-    if (Path(lock_file).exists()):
-        os.unlink(lock_file)
+    if (Path(LOCK_FILE).exists()):
+        os.unlink(LOCK_FILE)

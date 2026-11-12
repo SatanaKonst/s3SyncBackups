@@ -130,10 +130,11 @@ try:
 
     # Локальные бэкапы старше лимита не грузим: иначе карусель upload->delete на каждом прогоне
     localBackupsGroup = functions.groupBackups(localBackups)
-    localBackups = []
-    for files in localBackupsGroup.values():
-        localBackups += sorted(files, key=functions.backupDateKey, reverse=True)[:BACKUP_SAVE_COUNT]
-    localBackupsGroup = functions.groupBackups(localBackups)
+    localBackupsGroup = {
+        vmId: sorted(files, key=functions.backupDateKey, reverse=True)[:BACKUP_SAVE_COUNT]
+        for vmId, files in localBackupsGroup.items()
+    }
+    localBackups = [b for files in localBackupsGroup.values() for b in files]
 
     remoteBackups = functions.getRemoteBackups(REMOTE_NAME, BACKUP_CONTAINER_NAME)
 
